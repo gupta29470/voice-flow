@@ -1,0 +1,33 @@
+# Secrets — NEVER commit these
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.local.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# App data
+*.db
+*.sqlite3
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Personal planning & teaching docs (not part of the public repo)
+teach.py
+IMPLEMENTATION_PLAN.md
+VoiceFlow PRD Implementation Plan.md
