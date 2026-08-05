@@ -164,7 +164,7 @@ const WORKFLOW_NAME_FALLBACK: Record<string, string> = {
   loan_recovery: "Loan Recovery",
   emi_reminder: "EMI Reminder",
   banking_info: "Banking Info",
-  sales: "Sales",
+  sales: "Sales Outreach",
 };
 
 export function workflowName(id: string): string {

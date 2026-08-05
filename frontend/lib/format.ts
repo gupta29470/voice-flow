@@ -27,7 +27,8 @@ export function formatTimestamp(iso: string): string {
   });
 }
 
-export function formatMs(ms: number): string {
+export function formatMs(ms: number | null | undefined): string {
+  if (ms == null || Number.isNaN(ms)) return "—";
   if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`;
   return `${Math.round(ms)}ms`;
 }

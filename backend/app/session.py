@@ -19,7 +19,7 @@ class CallSession:
         self.messages: list[dict] = [{"role": "system", "content": prompt}]
         self.outcome: str | None = None
         self.end_requested = False
-        self.transfer_requested = False      # used in Part B
+        self.transfer_requested = False
         self.turn = 0
 
     @property

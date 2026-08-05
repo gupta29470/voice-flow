@@ -113,6 +113,9 @@ class CallPipeline:
 
     # ── turn handling ────────────────────────────────────────────────────
     async def _on_stt_event(self, event) -> None:
+        if self.session.end_requested or self.session.transfer_requested:
+            return
+
         if event.type == "interim":
             # BARGE-IN: caller started talking while the agent is speaking.
             if self._speak_task and not self._speak_task.done():
@@ -130,6 +133,16 @@ class CallPipeline:
         self._utterance_parts = []
         if not utterance:
             return
+
+        # A new caller turn cancels any still-running agent reply so we
+        # don't race two generate_reply loops on the same message list.
+        if self._speak_task and not self._speak_task.done():
+            self._speak_task.cancel()
+            await self._clear_audio()
+            try:
+                await self._speak_task
+            except asyncio.CancelledError:
+                pass
 
         self.session.turn += 1
         self.session.add_user_message(utterance)
@@ -200,11 +213,8 @@ class CallPipeline:
                     timer.first_audio_out()
                 await self._send_audio(chunk)
                 sent += len(chunk)
-
         except asyncio.CancelledError:
             raise
         except Exception:
             log.exception("tts failed")
-
-     
-            
+        return sent

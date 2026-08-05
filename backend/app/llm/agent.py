@@ -3,6 +3,7 @@ import re
 
 from openai import AsyncOpenAI
 
+from app import storage
 from app.config import settings
 from app.llm.tools import TOOLS_SCHEMAS, execute_tool
 
@@ -30,9 +31,16 @@ async def generate_reply(session):
 
     Tool calls are handled transparently inside the loop — the caller of
     this generator only ever sees speakable sentences.
+
+    Message history is updated inside the loop. The transcript gets one
+    agent row with all spoken text for the turn. If the generator is
+    cancelled mid-stream (barge-in), any unspoken-to-history audio is
+    synced in finally so the next turn still has context.
     """
     tools = [TOOLS_SCHEMAS[name] for name in session.workflow.tools]
     full_reply = ""
+    # Spoken text already placed into session.messages this turn.
+    committed_speech = ""
     try:
         for _ in range(MAX_TOOL_LOOPS):
             stream = await _client.chat.completions.create(
@@ -40,9 +48,7 @@ async def generate_reply(session):
                 messages=session.messages,
                 tools=tools or None,
                 tool_choice="auto" if tools else None,
-                # NOTE: kimi-for-coding only accepts temperature=1 (its
-                # default) — passing any other value is a 400 error.
-                max_tokens=300,        # short spoken replies; 1000 lets the agent ramble
+                max_tokens=300,        # short spoken replies
                 stream=True,
             )
 
@@ -81,8 +87,7 @@ async def generate_reply(session):
                 if choice.finish_reason:
                     finish_reason = choice.finish_reason
 
-            # Flush any leftover spoken text before running tools so a
-            # trailing "Thank you." / goodbye is actually heard.
+            # Flush leftover speech before tools so goodbye text is heard.
             if buffer.strip():
                 full_reply += buffer + " "
                 yield buffer.strip()
@@ -91,15 +96,20 @@ async def generate_reply(session):
             if finish_reason == "tool_calls" and tool_calls:
                 ordered = [tool_calls[index] for index in sorted(tool_calls)]
                 session.messages.append({
-                        "role": "assistant",
-                        "content": content_so_far or None,
-                        "tool_calls": [{
-                            "id": tool_call["id"],
+                    "role": "assistant",
+                    "content": content_so_far or None,
+                    "tool_calls": [{
+                        "id": tool_call["id"],
                         "type": "function",
                         "function": {"name": tool_call["name"],
                                      "arguments": tool_call["arguments"]},
-                        } for tool_call in ordered]
+                    } for tool_call in ordered],
                 })
+                if content_so_far.strip():
+                    committed_speech = (
+                        f"{committed_speech} {content_so_far}".strip()
+                        if committed_speech else content_so_far.strip()
+                    )
 
                 for tool_call in ordered:
                     try:
@@ -109,18 +119,38 @@ async def generate_reply(session):
 
                     result = execute_tool(session, tool_call["name"], args)
                     session.messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call["id"],
-                            "name": tool_call["name"],
-                            "content": result,
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "name": tool_call["name"],
+                        "content": result,
                     })
 
-                # Hangup / transfer: stop looping so we don't generate more.
+                # Hangup / transfer: speech should already have been streamed
+                # before the tool (goodbye / "connecting you now").
                 if session.end_requested or session.transfer_requested:
                     break
                 continue
 
+            # Plain speech turn — record once in the LLM history.
+            if content_so_far.strip():
+                session.messages.append({
+                    "role": "assistant",
+                    "content": content_so_far.strip(),
+                })
+                committed_speech = (
+                    f"{committed_speech} {content_so_far}".strip()
+                    if committed_speech else content_so_far.strip()
+                )
             break
 
     finally:
-        session.add_assistant_message(full_reply.strip())
+        text = full_reply.strip()
+        if text:
+            storage.add_transcript(session.call_id, "agent", text)
+            # Barge-in can cancel mid-stream before we append to messages.
+            if not committed_speech:
+                session.messages.append({"role": "assistant", "content": text})
+            elif text.startswith(committed_speech) and text != committed_speech:
+                rest = text[len(committed_speech):].strip()
+                if rest:
+                    session.messages.append({"role": "assistant", "content": rest})
