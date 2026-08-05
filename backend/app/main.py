@@ -127,6 +127,8 @@ async def start_call(request: StartCallRequest):
         voice_name=request.voice_name or _voicename(request.tts_provider, request.voice_id),
         context=request.context,
         language=request.language,
+        llm_provider=settings.llm_provider,
+        llm_model=settings.llm_model,
     )
 
     try:

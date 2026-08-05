@@ -57,19 +57,26 @@ TOOLS_SCHEMAS = {
             },
         },
     },
-     "end_call": {
+    "end_call": {
         "type": "function",
         "function": {
             "name": "end_call",
             "description": (
-                "End the phone call. Always say goodbye to the caller "
-                "BEFORE calling this tool."
+                "End the phone call AFTER the workflow goals are done, or "
+                "when the caller clearly declines / is the wrong person / "
+                "is busy / asks to stop. Never call this after a simple "
+                "'yes' or 'okay' confirmation — keep talking. Always say "
+                "goodbye BEFORE calling this tool."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "reason": {"type": "string",
-                               "description": "e.g. 'completed', 'no_interest', 'caller_requested'"},
+                               "description": (
+                                   "e.g. 'completed', 'no_interest', "
+                                   "'caller_requested', 'wrong_person', "
+                                   "'callback_requested'"
+                               )},
                 },
                 "required": [],
             },
@@ -142,7 +149,31 @@ def _escalate_to_human(session, reason) -> str:
     return ("Human transfer initiated. Tell the caller you are connecting "
             "them to a human specialist right now, and say goodbye.")
 
+# Reasons that are allowed even on the first caller turn (before goals finish).
+_EARLY_EXIT_MARKERS = (
+    "wrong_number", "wrong_person", "caller_busy", "busy",
+    "callback", "caller_requested", "not_available", "no_interest",
+    "decline", "refused", "not_interested", "do_not_call",
+)
+
 def _end_call(session, reason="completed") -> str:
+    reason = (reason or "completed").strip() or "completed"
+    reason_key = reason.lower().replace("-", "_").replace(" ", "_")
+    early_ok = any(marker in reason_key for marker in _EARLY_EXIT_MARKERS)
+
+    # Block the common failure mode: caller says "yes" → model thanks them
+    # and hangs up before any of the workflow goals run.
+    if session.turn <= 1 and not session.outcome and not early_ok:
+        log.info("end_call rejected as premature (call %s, turn=%s, reason=%s)",
+                 session.call_id, session.turn, reason)
+        return (
+            "Call not ended — it is too early. The caller only confirmed. "
+            "Continue with your next workflow goal right now (for example, "
+            "state the overdue amount / EMI / product pitch). Only call "
+            "end_call after the goals are finished, or if the caller clearly "
+            "asks to stop / is the wrong person / is busy."
+        )
+
     log.info("end_call tool invoked (call %s, reason=%s)",
              session.call_id, reason)
     session.end_requested = True          # the pipeline watches this flag

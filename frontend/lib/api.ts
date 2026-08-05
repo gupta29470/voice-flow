@@ -43,6 +43,8 @@ export interface CallSummary {
   outcome: string | null;
   tts_provider: string;
   voice_name: string;
+  llm_provider: string;
+  llm_model: string;
   started_at: string; // ISO 8601
   duration_sec: number | null;
 }

@@ -81,6 +81,13 @@ async def generate_reply(session):
                 if choice.finish_reason:
                     finish_reason = choice.finish_reason
 
+            # Flush any leftover spoken text before running tools so a
+            # trailing "Thank you." / goodbye is actually heard.
+            if buffer.strip():
+                full_reply += buffer + " "
+                yield buffer.strip()
+                buffer = ""
+
             if finish_reason == "tool_calls" and tool_calls:
                 ordered = [tool_calls[index] for index in sorted(tool_calls)]
                 session.messages.append({
@@ -107,11 +114,12 @@ async def generate_reply(session):
                             "name": tool_call["name"],
                             "content": result,
                     })
+
+                # Hangup / transfer: stop looping so we don't generate more.
+                if session.end_requested or session.transfer_requested:
+                    break
                 continue
 
-            if buffer.strip():
-                full_reply += buffer + " "
-                yield buffer.strip()
             break
 
     finally:

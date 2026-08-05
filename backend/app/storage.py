@@ -25,6 +25,8 @@ def init_db() -> None:
                 tts_provider    TEXT NOT NULL,
                 voice_id        TEXT NOT NULL,
                 voice_name      TEXT NOT NULL DEFAULT '',
+                llm_provider    TEXT NOT NULL DEFAULT '',
+                llm_model       TEXT NOT NULL DEFAULT '',
                 context_json    TEXT NOT NULL DEFAULT '{}',
                 language        TEXT NOT NULL DEFAULT 'en',
                 status          TEXT NOT NULL DEFAULT 'initiated',
@@ -52,18 +54,31 @@ def init_db() -> None:
             );
             """
         )
+        # Migrate DBs created before llm_* columns existed.
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(calls)")}
+        if "llm_provider" not in cols:
+            conn.execute(
+                "ALTER TABLE calls ADD COLUMN llm_provider TEXT NOT NULL DEFAULT ''"
+            )
+        if "llm_model" not in cols:
+            conn.execute(
+                "ALTER TABLE calls ADD COLUMN llm_model TEXT NOT NULL DEFAULT ''"
+            )
 
 def create_call(workflow_id, phone_number, tts_provider, voice_id,
-                voice_name, context, language="en") -> str:
+                voice_name, context, language="en",
+                llm_provider="", llm_model="") -> str:
     """Insert a new call row (status 'initiated') and return its id."""
     call_id = uuid.uuid4().hex[:12]
     with _conn() as conn:
         conn.execute(
             "INSERT INTO calls (id, workflow_id, phone_number, tts_provider,"
-            " voice_id, voice_name, context_json, status, started_at, language)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?)",
+            " voice_id, voice_name, llm_provider, llm_model, context_json,"
+            " status, started_at, language)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (call_id, workflow_id, phone_number, tts_provider, voice_id,
-             voice_name, json.dumps(context), "initiated", _now(), language),
+             voice_name, llm_provider, llm_model, json.dumps(context),
+             "initiated", _now(), language),
         )
     return call_id
 
@@ -111,6 +126,7 @@ def add_turn_metrics(call_id, turn, stt_ms, llm_ms, tts_ms, e2e_ms) -> None:
         )
 
 def _row_to_call(row) -> dict:
+    keys = row.keys()
     return {
         "id": row["id"],
         "workflow_id": row["workflow_id"],
@@ -118,6 +134,8 @@ def _row_to_call(row) -> dict:
         "tts_provider": row["tts_provider"],
         "voice_id": row["voice_id"],
         "voice_name": row["voice_name"],
+        "llm_provider": row["llm_provider"] if "llm_provider" in keys else "",
+        "llm_model": row["llm_model"] if "llm_model" in keys else "",
         "context": json.loads(row["context_json"]),
         "language": row["language"],
         "status": row["status"],

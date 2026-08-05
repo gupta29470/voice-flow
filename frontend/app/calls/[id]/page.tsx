@@ -56,7 +56,19 @@ function MetricCard({
   );
 }
 
-function MetricsPanel({ metrics, live }: { metrics: CallMetrics | null; live: boolean }) {
+function MetricsPanel({
+  metrics,
+  live,
+  llmProvider,
+  llmModel,
+}: {
+  metrics: CallMetrics | null;
+  live: boolean;
+  llmProvider?: string;
+  llmModel?: string;
+}) {
+  const llmSub = [llmProvider, llmModel].filter(Boolean).join(" · ") || "first sentence";
+
   if (!metrics) {
     return (
       <div className="rounded-xl border border-dashed border-white/10 p-6 text-center">
@@ -83,7 +95,7 @@ function MetricsPanel({ metrics, live }: { metrics: CallMetrics | null; live: bo
       <MetricCard label="End-to-end avg" value={formatMs(metrics.e2e_avg_ms)} sub="speech-to-speech" accent />
       <MetricCard label="End-to-end P95" value={formatMs(metrics.e2e_p95_ms)} sub="tail latency" accent />
       <MetricCard label="STT avg" value={formatMs(metrics.stt_avg_ms)} sub="Deepgram" />
-      <MetricCard label="LLM avg" value={formatMs(metrics.llm_avg_ms)} sub="first token" />
+      <MetricCard label="LLM avg" value={formatMs(metrics.llm_avg_ms)} sub={llmSub} />
       <MetricCard label="TTS avg" value={formatMs(metrics.tts_avg_ms)} sub="first audio byte" />
       <MetricCard label="Turns" value={String(metrics.turns)} sub="conversation turns" />
     </div>
@@ -172,14 +184,29 @@ export default function CallDetailPage() {
               </div>
               <span className="font-mono text-xs text-zinc-600">{call.id}</span>
             </div>
-            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3 lg:grid-cols-7">
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-zinc-600">Phone</dt>
                 <dd className="mt-0.5 font-mono text-zinc-200">{call.phone_number}</dd>
               </div>
               <div>
-                <dt className="text-[11px] uppercase tracking-wider text-zinc-600">Provider</dt>
+                <dt className="text-[11px] uppercase tracking-wider text-zinc-600">TTS</dt>
                 <dd className="mt-0.5 capitalize text-zinc-200">{call.tts_provider}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-wider text-zinc-600">LLM</dt>
+                <dd className="mt-0.5 text-zinc-200">
+                  {call.llm_provider || call.llm_model ? (
+                    <>
+                      <span className="capitalize">{call.llm_provider || "—"}</span>
+                      {call.llm_model ? (
+                        <span className="text-zinc-400"> · {call.llm_model}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-zinc-600">Voice</dt>
@@ -262,7 +289,12 @@ export default function CallDetailPage() {
                 measured per conversation turn
               </span>
             </div>
-            <MetricsPanel metrics={call.metrics} live={live} />
+            <MetricsPanel
+              metrics={call.metrics}
+              live={live}
+              llmProvider={call.llm_provider}
+              llmModel={call.llm_model}
+            />
           </section>
         </>
       )}

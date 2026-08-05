@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     app_active: bool = True
 
     @property
+    def llm_provider(self) -> str:
+        return "grok" if self.grok_api_key else "kimi"
+
+    @property
     def llm_api_key(self) -> str:
         return self.grok_api_key or self.kimi_api_key
 
