@@ -71,9 +71,23 @@ export interface CallMetrics {
   e2e_p95_ms: number;
 }
 
+/** Structured data written when agent tools fire (promise-to-pay, lead, etc.). */
+export type CallCapture = {
+  type?: string;
+  amount?: number | string;
+  pay_by_date?: string;
+  interest_level?: string;
+  notes?: string;
+  reason?: string;
+  [key: string]: unknown;
+};
+
 export interface CallDetail extends CallSummary {
   transcript: TranscriptTurn[];
   metrics: CallMetrics | null;
+  context: Record<string, string>;
+  capture: CallCapture;
+  language?: string;
 }
 
 export interface CreateCallRequest {

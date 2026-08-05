@@ -7,6 +7,7 @@ import {
   api,
   ApiError,
   workflowName,
+  type CallCapture,
   type CallDetail,
   type CallMetrics,
 } from "@/lib/api";
@@ -14,6 +15,20 @@ import { formatDateTime, formatDuration, formatMs, formatTimestamp } from "@/lib
 import { StatusBadge } from "@/components/StatusBadge";
 import { BackendNote } from "@/components/BackendNote";
 import { Skeleton } from "@/components/Skeleton";
+
+const CAPTURE_TITLES: Record<string, string> = {
+  promise_to_pay: "Promise to pay",
+  lead_qualified: "Lead qualified",
+  escalated: "Escalated to human",
+  ended: "Call ended",
+};
+
+const INTEREST_LABELS: Record<string, string> = {
+  hot: "Hot",
+  warm: "Warm",
+  cold: "Cold",
+  not_interested: "Not interested",
+};
 
 const LIVE_POLL_MS = 3000;
 const ERROR_RETRY_MS = 5000;
@@ -52,6 +67,118 @@ function MetricCard({
         {value}
       </p>
       {sub && <p className="mt-1 text-xs text-zinc-600">{sub}</p>}
+    </div>
+  );
+}
+
+function CapturePanel({
+  capture,
+  outcome,
+  context,
+  live,
+}: {
+  capture: CallCapture | null | undefined;
+  outcome: string | null;
+  context: Record<string, string>;
+  live: boolean;
+}) {
+  const type = capture?.type;
+  const hasCapture = Boolean(type);
+  const contextEntries = Object.entries(context || {}).filter(([, v]) => v);
+
+  if (!hasCapture && contextEntries.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-white/10 p-5 text-sm text-zinc-500">
+        {live
+          ? "Captured results will appear here when the agent logs a promise, qualifies a lead, or escalates…"
+          : outcome
+            ? outcome
+            : "No structured result was captured on this call."}
+      </div>
+    );
+  }
+
+  const title = (type && CAPTURE_TITLES[type]) || "Captured result";
+
+  return (
+    <div className="space-y-3">
+      {hasCapture && (
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-emerald-200">{title}</p>
+            {type === "lead_qualified" && capture?.interest_level ? (
+              <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-300 ring-1 ring-emerald-500/30">
+                {INTEREST_LABELS[String(capture.interest_level)] ??
+                  String(capture.interest_level)}
+              </span>
+            ) : null}
+          </div>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+            {type === "promise_to_pay" && (
+              <>
+                <div>
+                  <dt className="text-[11px] uppercase tracking-wider text-zinc-600">
+                    Amount
+                  </dt>
+                  <dd className="mt-0.5 font-mono text-zinc-100">
+                    ₹{capture?.amount ?? "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] uppercase tracking-wider text-zinc-600">
+                    Pay by
+                  </dt>
+                  <dd className="mt-0.5 text-zinc-100">
+                    {String(capture?.pay_by_date ?? "—")}
+                  </dd>
+                </div>
+              </>
+            )}
+            {type === "lead_qualified" && capture?.notes ? (
+              <div className="sm:col-span-2">
+                <dt className="text-[11px] uppercase tracking-wider text-zinc-600">
+                  Notes
+                </dt>
+                <dd className="mt-0.5 text-zinc-200">{String(capture.notes)}</dd>
+              </div>
+            ) : null}
+            {type === "promise_to_pay" && capture?.notes ? (
+              <div className="sm:col-span-2">
+                <dt className="text-[11px] uppercase tracking-wider text-zinc-600">
+                  Notes
+                </dt>
+                <dd className="mt-0.5 text-zinc-200">{String(capture.notes)}</dd>
+              </div>
+            ) : null}
+            {(type === "escalated" || type === "ended") && (
+              <div className="sm:col-span-2">
+                <dt className="text-[11px] uppercase tracking-wider text-zinc-600">
+                  Reason
+                </dt>
+                <dd className="mt-0.5 text-zinc-200">
+                  {String(capture?.reason ?? outcome ?? "—")}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      )}
+
+      {contextEntries.length > 0 && (
+        <div className="rounded-xl border border-white/10 bg-zinc-900/50 p-5">
+          <p className="text-sm font-semibold text-zinc-200">Call context</p>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {contextEntries.map(([key, value]) => (
+              <div key={key}>
+                <dt className="text-[11px] uppercase tracking-wider text-zinc-600">
+                  {key.replace(/_/g, " ")}
+                </dt>
+                <dd className="mt-0.5 text-zinc-200">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </div>
   );
 }
@@ -226,6 +353,19 @@ export default function CallDetailPage() {
               </div>
             </dl>
           </div>
+
+          {/* Captured tool results */}
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-zinc-200">
+              Captured result
+            </h2>
+            <CapturePanel
+              capture={call.capture}
+              outcome={call.outcome}
+              context={call.context ?? {}}
+              live={live}
+            />
+          </section>
 
           {/* Transcript */}
           <section>

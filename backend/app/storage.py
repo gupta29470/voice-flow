@@ -31,6 +31,7 @@ def init_db() -> None:
                 language        TEXT NOT NULL DEFAULT 'en',
                 status          TEXT NOT NULL DEFAULT 'initiated',
                 outcome         TEXT,
+                capture_json    TEXT NOT NULL DEFAULT '{}',
                 twilio_call_sid TEXT,
                 started_at      TEXT NOT NULL,
                 ended_at        TEXT,
@@ -63,6 +64,10 @@ def init_db() -> None:
         if "llm_model" not in cols:
             conn.execute(
                 "ALTER TABLE calls ADD COLUMN llm_model TEXT NOT NULL DEFAULT ''"
+            )
+        if "capture_json" not in cols:
+            conn.execute(
+                "ALTER TABLE calls ADD COLUMN capture_json TEXT NOT NULL DEFAULT '{}'"
             )
 
 def create_call(workflow_id, phone_number, tts_provider, voice_id,
@@ -140,10 +145,21 @@ def _row_to_call(row) -> dict:
         "language": row["language"],
         "status": row["status"],
         "outcome": row["outcome"],
+        "capture": _parse_capture(row["capture_json"]) if "capture_json" in keys else {},
         "started_at": row["started_at"],
         "ended_at": row["ended_at"],
         "duration_sec": row["duration_sec"],
     }
+
+
+def _parse_capture(raw) -> dict:
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (TypeError, json.JSONDecodeError):
+        return {}
 
 
 def list_calls() -> list[dict]:

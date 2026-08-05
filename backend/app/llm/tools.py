@@ -145,12 +145,22 @@ def _lookup_loan_details(session) -> str:
     })
 
 def _log_promise_to_pay(session, amount, pay_by_date, notes="") -> str:
-    session.set_outcome(f"promise_to_pay: ₹{amount} by {pay_by_date}")
+    session.set_capture(
+        "promise_to_pay",
+        f"Promise to pay ₹{amount} by {pay_by_date}",
+        amount=amount,
+        pay_by_date=pay_by_date,
+        notes=notes or "",
+    )
     return (f"Recorded: borrower promised to pay ₹{amount} by "
             f"{pay_by_date}. Confirm the commitment back to them warmly.")
 
 def _escalate_to_human(session, reason) -> str:
-    session.set_outcome(f"escalated: {reason}")
+    session.set_capture(
+        "escalated",
+        f"Escalated to human: {reason}",
+        reason=reason,
+    )
     session.transfer_requested = True
     return "Transfer started. Do not say anything else — the call is moving."
 
@@ -178,7 +188,8 @@ def _end_call(session, reason="completed") -> str:
              session.call_id, reason)
     session.end_requested = True
     if not session.outcome:
-        session.set_outcome(reason)
+        session.set_capture("ended", reason.replace("_", " ").title(),
+                            reason=reason)
     return "Ending the call now."
 
 def _lookup_balance(session) -> str:
@@ -194,7 +205,13 @@ def _lookup_branch(session, area="") -> str:
             "open Monday to Saturday, 10 AM to 4 PM.")
 
 def _qualify_lead(session, interest_level, notes="") -> str:
-    session.set_outcome(f"lead_{interest_level}")
+    label = interest_level.replace("_", " ").title()
+    session.set_capture(
+        "lead_qualified",
+        f"Lead: {label}",
+        interest_level=interest_level,
+        notes=notes or "",
+    )
     return f"Lead recorded as {interest_level}."
 
 HANDLERS = {

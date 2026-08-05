@@ -1,3 +1,4 @@
+import json
 from collections import defaultdict
 
 from app import storage
@@ -18,6 +19,7 @@ class CallSession:
             language, LANGUAGE_INSTRUCTIONS["en"])
         self.messages: list[dict] = [{"role": "system", "content": prompt}]
         self.outcome: str | None = None
+        self.capture: dict | None = None
         self.end_requested = False
         self.transfer_requested = False
         self.turn = 0
@@ -42,6 +44,12 @@ class CallSession:
             self.messages.append({"role": "assistant", "content": text})
             storage.add_transcript(self.call_id, "agent", text)
 
-    def set_outcome(self, outcome: str) -> None:
-        self.outcome = outcome
-        storage.update_call(self.call_id, outcome=outcome)
+    def set_capture(self, kind: str, summary: str, **fields) -> None:
+        """Structured tool result for the call-detail dashboard."""
+        self.outcome = summary
+        self.capture = {"type": kind, **fields}
+        storage.update_call(
+            self.call_id,
+            outcome=summary,
+            capture_json=json.dumps(self.capture),
+        )
