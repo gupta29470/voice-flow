@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     database_path: str = "voiceflow.db"
 
     kimi_base_url: str = "https://api.kimi.com/coding/v1"
-    kimi_model: str = "kimi-for-coding"
+    kimi_model: str = "k3-256k"   # 2.1s to first sentence vs 3.8s for kimi-for-coding
     deepgram_model: str = "nova-2-phonecall"
     cartesia_model: str = "sonic-3.5"
     elevenlabs_model: str = "eleven_flash_v2_5"

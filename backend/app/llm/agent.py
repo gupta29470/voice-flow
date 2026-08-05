@@ -42,7 +42,7 @@ async def generate_reply(session):
                 tool_choice="auto" if tools else None,
                 # NOTE: kimi-for-coding only accepts temperature=1 (its
                 # default) — passing any other value is a 400 error.
-                max_tokens=1000,
+                max_tokens=300,        # short spoken replies; 1000 lets the agent ramble
                 stream=True,
             )
 

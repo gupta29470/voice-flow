@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 from app import storage
 from app.llm.agent import generate_reply
@@ -148,24 +149,35 @@ class CallPipeline:
             timer.mark("llm_start")
             first_sentence = True
             turn_timer: TurnTimer | None = timer
+            spoken_bytes = 0
+            first_audio_at: float | None = None
 
             async for sentence in generate_reply(self.session):
                 if first_sentence:
                     timer.llm_first_sentence()
                     first_sentence = False
-                await self._speak_text(sentence, turn_timer)
+                if first_audio_at is None:
+                    first_audio_at = time.perf_counter()
+                spoken_bytes += await self._speak_text(sentence, turn_timer)
                 turn_timer = None
 
-            if self.session.transfer_requested:
-                await asyncio.sleep(2)
-                log.info("transfer requested — transferring call %s",
-                         self.session.call_id)
-                await self._transfer()
-            elif self.session.end_requested:
-                await asyncio.sleep(1.5)
-                log.info("end_call requested — hanging up call %s",
-                         self.session.call_id)
-                await self._hangup()
+            if self.session.transfer_requested or self.session.end_requested:
+                # mulaw @ 8kHz = 8000 bytes/sec of audio. TTS streams faster
+                # than real-time, so Twilio is still playing buffered audio
+                # after we finish sending. Wait exactly until the buffer
+                # drains (+0.3s margin) — no sooner (cuts the goodbye),
+                # no later (dead air).
+                remaining = (spoken_bytes / 8000) - (
+                    time.perf_counter() - (first_audio_at or time.perf_counter()))
+                await asyncio.sleep(max(0.2, remaining + 0.3))
+                if self.session.transfer_requested:
+                    log.info("transfer requested — transferring call %s",
+                             self.session.call_id)
+                    await self._transfer()
+                else:
+                    log.info("end_call requested — hanging up call %s",
+                             self.session.call_id)
+                    await self._hangup()
 
         except asyncio.CancelledError:
             raise
@@ -174,8 +186,10 @@ class CallPipeline:
         finally:
             timer.save()
 
-    async def _speak_text(self, text: str, timer: TurnTimer | None = None) -> None:
-        """Stream one piece of text through TTS and out to the caller."""
+    async def _speak_text(self, text: str, timer: TurnTimer | None = None) -> int:
+        """Stream one piece of text through TTS and out to the caller.
+        Returns the number of audio bytes sent."""
+        sent = 0
         try:
             if timer:
                 timer.mark("tts_start")
@@ -185,6 +199,7 @@ class CallPipeline:
                 if timer and timer.metrics.e2e_ms is None:
                     timer.first_audio_out()
                 await self._send_audio(chunk)
+                sent += len(chunk)
 
         except asyncio.CancelledError:
             raise
