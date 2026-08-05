@@ -1,4 +1,7 @@
 import json
+import logging
+
+log = logging.getLogger("tools")
 
 TOOLS_SCHEMAS = {
     "lookup_loan_details": {
@@ -140,6 +143,8 @@ def _escalate_to_human(session, reason) -> str:
             "them to a human specialist right now, and say goodbye.")
 
 def _end_call(session, reason="completed") -> str:
+    log.info("end_call tool invoked (call %s, reason=%s)",
+             session.call_id, reason)
     session.end_requested = True          # the pipeline watches this flag
     if not session.outcome:
         session.set_outcome(reason)

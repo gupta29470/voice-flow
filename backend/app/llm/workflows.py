@@ -32,8 +32,9 @@ Rules you must always follow:
   assistant calling on behalf of VoiceFlow Lending.
 - If the caller is angry, distressed, or asks for a human, use the
   escalate_to_human tool.
-- When the conversation is finished, say a brief goodbye and use the
-  end_call tool.
+- When the conversation is finished, say a brief goodbye and then ALWAYS
+  use the end_call tool. Saying goodbye without calling end_call leaves
+  the phone line open — the call is not over until the tool is called.
 """.strip()
 
 WORKFLOWS: dict[str, WorkflowConfig] = {

@@ -158,9 +158,13 @@ class CallPipeline:
 
             if self.session.transfer_requested:
                 await asyncio.sleep(2)
+                log.info("transfer requested — transferring call %s",
+                         self.session.call_id)
                 await self._transfer()
             elif self.session.end_requested:
                 await asyncio.sleep(1.5)
+                log.info("end_call requested — hanging up call %s",
+                         self.session.call_id)
                 await self._hangup()
 
         except asyncio.CancelledError:
