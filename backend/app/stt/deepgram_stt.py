@@ -10,7 +10,20 @@ DEEPGRAM_URL = (
     "wss://api.deepgram.com/v1/listen"
     "?encoding=mulaw&sample_rate=8000&channels=1"
     "&model={model}&interim_results=true&endpointing=300&smart_format=true"
+    "&language={language}"
 )
+
+# nova-2-phonecall is English-only. Non-English calls need nova-2-general.
+_EN_ONLY_MODELS = frozenset({
+    "nova-2-phonecall", "nova-phonecall", "nova-2-meeting",
+    "nova-2-finance", "nova-2-conversationalai", "nova-2-voicemail",
+})
+
+def _model_for_language(language: str) -> str:
+    model = settings.deepgram_model
+    if language != "en" and model in _EN_ONLY_MODELS:
+        return "nova-2"
+    return model
 
 class DeepgramSTT(STTProvider):
     def __init__(self, language: str = "en") -> None:
@@ -19,8 +32,10 @@ class DeepgramSTT(STTProvider):
         self.last_audio_sent_at: float | None = None
 
     async def connect(self) -> None:
-        url = (DEEPGRAM_URL.format(model=settings.deepgram_model)
-               + f"&language={self.language}")
+        url = DEEPGRAM_URL.format(
+            model=_model_for_language(self.language),
+            language=self.language,
+        )
         self._ws = await websockets.connect(
             url,
             additional_headers={
