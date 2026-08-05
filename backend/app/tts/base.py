@@ -1,17 +1,19 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class Voice:
     provider: str
     id: str
     name: str
     description: str = ""
+    language: str = "en"  # ISO 639-1, e.g. "en" or "hi"
 
 
 class TTSProvider:
     name: str = "base"
 
-    async def stream(self, text: str, voice_id: str):
+    async def stream(self, text: str, voice_id: str, language: str = "en"):
         """Async generator: yield mulaw @ 8kHz audio chunks for `text`.
 
         Chunks flow straight to Twilio — the earlier the first chunk, the
@@ -31,3 +33,8 @@ def get_provider(name: str) -> TTSProvider:
     if name not in providers:
         raise ValueError(f"Unknown TTS provider: {name}")
     return providers[name]()
+
+
+def tts_language(call_language: str) -> str:
+    """Map call language (en/hi/hinglish) to a Cartesia/TTS language code."""
+    return "en" if call_language == "en" else "hi"

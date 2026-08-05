@@ -6,7 +6,7 @@ from app import storage
 from app.llm.agent import generate_reply
 from app.metrics import TurnTimer
 from app.stt.deepgram_stt import DeepgramSTT
-from app.tts.base import get_provider
+from app.tts.base import get_provider, tts_language
 
 log = logging.getLogger("pipeline")
 
@@ -206,7 +206,10 @@ class CallPipeline:
         try:
             if timer:
                 timer.mark("tts_start")
-            async for chunk in self.tts.stream(text, self.session.voice_id):
+            lang = tts_language(self.session.language)
+            async for chunk in self.tts.stream(
+                text, self.session.voice_id, language=lang
+            ):
                 if timer and timer.metrics.tts_ms is None:
                     timer.tts_first_audio()
                 if timer and timer.metrics.e2e_ms is None:

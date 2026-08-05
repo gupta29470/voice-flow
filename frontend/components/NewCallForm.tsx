@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   api,
   ApiError,
+  voiceLanguageForCall,
   type TtsProvider,
   type Voice,
   type Workflow,
@@ -53,8 +54,6 @@ export function NewCallForm() {
         if (cancelled) return;
         setWorkflows(wf);
         setVoices(vc);
-        const first = vc.find((v) => v.provider === "cartesia");
-        if (first) setVoiceId(first.id);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
@@ -70,15 +69,31 @@ export function NewCallForm() {
     [workflows, workflowId]
   );
 
-  const providerVoices = useMemo(
-    () => voices?.filter((v) => v.provider === provider) ?? [],
-    [voices, provider]
-  );
+  const ttsLang = voiceLanguageForCall(language);
+
+  const providerVoices = useMemo(() => {
+    const forProvider = voices?.filter((v) => v.provider === provider) ?? [];
+    const matched = forProvider.filter((v) => (v.language || "en") === ttsLang);
+    // ElevenLabs rarely tags Hindi; Flash still handles hi/hinglish text.
+    if (matched.length === 0 && provider === "elevenlabs") return forProvider;
+    return matched;
+  }, [voices, provider, ttsLang]);
 
   const selectedVoice = useMemo(
     () => providerVoices.find((v) => v.id === voiceId) ?? null,
     [providerVoices, voiceId]
   );
+
+  // Keep a valid voice selected when provider or call language changes.
+  useEffect(() => {
+    if (providerVoices.length === 0) {
+      setVoiceId("");
+      return;
+    }
+    if (!providerVoices.some((v) => v.id === voiceId)) {
+      setVoiceId(providerVoices[0].id);
+    }
+  }, [providerVoices, voiceId]);
 
   function selectWorkflow(id: string) {
     setWorkflowId(id);
@@ -88,8 +103,6 @@ export function NewCallForm() {
 
   function selectProvider(p: TtsProvider) {
     setProvider(p);
-    const first = voices?.find((v) => v.provider === p);
-    setVoiceId(first?.id ?? "");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -301,7 +314,7 @@ export function NewCallForm() {
           ) : providerVoices.length > 0 ? (
             <div>
               <label htmlFor="voice" className={labelClass}>
-                Voice
+                Voice ({ttsLang === "hi" ? "Hindi" : "English"})
               </label>
               <select
                 id="voice"
@@ -321,7 +334,8 @@ export function NewCallForm() {
             </div>
           ) : (
             <p className="text-sm text-zinc-500">
-              No voices available for this provider.
+              No {ttsLang === "hi" ? "Hindi" : "English"} voices for this
+              provider — try Cartesia.
             </p>
           )}
         </div>

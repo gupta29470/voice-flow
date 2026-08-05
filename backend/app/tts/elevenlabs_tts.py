@@ -14,7 +14,10 @@ VOICES_URL = "https://api.elevenlabs.io/v1/voices"
 class ElevenLabsTTS(TTSProvider):
     name = "elevenlabs"
 
-    async def stream(self, text: str, voice_id: str):
+    async def stream(self, text: str, voice_id: str, language: str = "en"):
+        # ElevenLabs Flash picks language from the text; language arg kept
+        # for a uniform TTSProvider.stream signature.
+        del language
         url = WS_URL.format(voice_id=voice_id,
                             model=settings.elevenlabs_model)
 
@@ -52,10 +55,22 @@ class ElevenLabsTTS(TTSProvider):
             )
             resp.raise_for_status()
             data = resp.json()
-        return [
-            Voice(provider=self.name, id=v["voice_id"],
-                  name=v.get("name", ""),
-                  description=(v.get("labels") or {}).get("description", "")
-                  or "")
-            for v in data.get("voices", [])[:8]
-        ]
+        voices = []
+        for v in data.get("voices", [])[:12]:
+            labels = v.get("labels") or {}
+            # ElevenLabs labels sometimes include language; default English.
+            lang = (labels.get("language") or "en").lower()
+            if lang.startswith("hi"):
+                lang = "hi"
+            elif lang.startswith("en"):
+                lang = "en"
+            else:
+                lang = "en"
+            voices.append(Voice(
+                provider=self.name,
+                id=v["voice_id"],
+                name=v.get("name", ""),
+                description=labels.get("description", "") or "",
+                language=lang,
+            ))
+        return voices

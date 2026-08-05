@@ -31,6 +31,13 @@ export interface Voice {
   id: string;
   name: string;
   description: string;
+  /** ISO 639-1: "en" or "hi" */
+  language: string;
+}
+
+/** Map call language to TTS voice language (hinglish uses Hindi voices). */
+export function voiceLanguageForCall(callLanguage: string): "en" | "hi" {
+  return callLanguage === "en" ? "en" : "hi";
 }
 
 export type CallStatus = "initiated" | "in_progress" | "completed" | "failed";
