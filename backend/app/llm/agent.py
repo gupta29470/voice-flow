@@ -6,8 +6,8 @@ from openai import AsyncOpenAI
 from app.config import settings
 from app.llm.tools import TOOLS_SCHEMAS, execute_tool
 
-_client = AsyncOpenAI(api_key=settings.kimi_api_key,
-                      base_url=settings.kimi_base_url)
+_client = AsyncOpenAI(api_key=settings.llm_api_key,
+                      base_url=settings.llm_base_url)
 
 # A sentence ends with . ! or ? followed by whitespace. Splitting on this
 # keeps the sentence's punctuation attached to the sentence.
@@ -36,7 +36,7 @@ async def generate_reply(session):
     try:
         for _ in range(MAX_TOOL_LOOPS):
             stream = await _client.chat.completions.create(
-                model=settings.kimi_model,
+                model=settings.llm_model,
                 messages=session.messages,
                 tools=tools or None,
                 tool_choice="auto" if tools else None,
