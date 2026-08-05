@@ -25,5 +25,9 @@ class Settings(BaseSettings):
 
     human_handoff_number: str = "" 
 
+    # Set False to put the app in demo-notice mode: call creation is
+    # blocked (403) and the dashboard shows "demo app, not for commercial use".
+    app_active: bool = True
+
 
 settings = Settings()

@@ -37,6 +37,14 @@ export function NewCallForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdCallId, setCreatedCallId] = useState<string | null>(null);
+  const [appActive, setAppActive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Older backends without /api/config → treat as active.
+    api.getAppConfig()
+      .then((cfg) => setAppActive(cfg.app_active))
+      .catch(() => setAppActive(true));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +123,7 @@ export function NewCallForm() {
   }
 
   const canSubmit =
+    appActive !== false &&
     !!workflow &&
     !!voiceId &&
     phone.trim().length > 0 &&
@@ -124,6 +133,16 @@ export function NewCallForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {loadError && <BackendNote message={loadError} />}
+
+      {appActive === false && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <p className="text-sm font-semibold text-amber-200">Demo application</p>
+          <p className="mt-1 text-xs leading-relaxed text-amber-300/80">
+            VoiceFlow is a portfolio demo and not for commercial use. Outbound
+            calling is currently disabled.
+          </p>
+        </div>
+      )}
 
       {/* 1 — Category */}
       <section>

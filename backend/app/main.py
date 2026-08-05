@@ -50,6 +50,12 @@ class StartCallRequest(BaseModel):
 def health():
     return {"status": "ok"}
 
+
+@app.get("/api/config")
+def app_config():
+    """Public runtime config for the frontend (no secrets)."""
+    return {"app_active": settings.app_active}
+
 @app.get("/api/workflows")
 def list_workflows():
     """The dashboard builds its whole form from this response."""
@@ -96,6 +102,12 @@ def _voicename(provider_name: str, voice_id: str) -> str:
 
 @app.post("/api/calls", status_code=201)
 async def start_call(request: StartCallRequest):
+    if not settings.app_active:
+        raise HTTPException(
+            403,
+            "VoiceFlow is a demo app and not for commercial use. "
+            "Outbound calling is currently disabled.",
+        )
     if request.workflow_id not in WORKFLOWS:
         raise HTTPException(404, f"Unknown workflow: {request.workflow_id}")
     if request.tts_provider not in ("cartesia", "elevenlabs"):

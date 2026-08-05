@@ -140,6 +140,8 @@ export const api = {
 
   listVoices: () => request<{ voices: Voice[] }>("/api/voices").then((r) => r.voices),
 
+  getAppConfig: () => request<{ app_active: boolean }>("/api/config"),
+
   createCall: (body: CreateCallRequest) =>
     request<CreateCallResponse>("/api/calls", {
       method: "POST",
