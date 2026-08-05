@@ -250,12 +250,21 @@ export function NewCallForm() {
             </label>
             <input
               id="phone"
-              type="tel"
+              type="password"
+              inputMode="tel"
+              name="vf-recipient"
               required
               placeholder="+14155552671"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className={`${inputClass} font-mono`}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-1p-ignore
+              data-lpignore="true"
+              data-form-type="other"
+              className={`${inputClass} font-mono tracking-widest`}
             />
             <p className="mt-2 text-xs text-zinc-600">
               Include country code, e.g. +1… or +91…. Twilio trial accounts can only call
