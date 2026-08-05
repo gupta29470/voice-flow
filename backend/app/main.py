@@ -28,7 +28,11 @@ app = FastAPI(title="VoiceFlow", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],
+    # Demo app with no auth/cookies: allow any origin so the Vercel
+    # production domain, preview deployments, and localhost all work.
+    # Tighten to [settings.frontend_url, "http://localhost:3000"] if
+    # you ever add authentication.
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
