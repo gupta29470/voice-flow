@@ -17,8 +17,10 @@ def place_call(call_id: str, to_number: str) -> str:
     call = _client().calls.create(
         to=to_number,
         from_=settings.twilio_phone_number,
+        # NOTE: no method= param — Twilio TRIAL accounts reject it with
+        # HTTP 400 "trial accounts have limited parameter access".
+        # The url webhook defaults to POST, so nothing is lost.
         url=f"{settings.public_url}/twilio/voice?call_id={call_id}",
-        method="POST",
     )
 
     return call.sid
