@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VoiceFlow — Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #09090b;
+      --panel: #18181b;
+      --panel-2: #27272a;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --dim: #71717a;
+      --indigo: #818cf8;
+      --indigo-dim: rgba(99, 102, 241, 0.15);
+      --emerald: #34d399;
+      --emerald-dim: rgba(16, 185, 129, 0.12);
+      --amber: #fbbf24;
+      --amber-dim: rgba(245, 158, 11, 0.12);
+      --rose: #fb7185;
+      --rose-dim: rgba(244, 63, 94, 0.12);
+      --sky: #38bdf8;
+      --sky-dim: rgba(14, 165, 233, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.18), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(16, 185, 129, 0.08), transparent),
+        var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", system-ui, sans-serif;
+      line-height: 1.5;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+    }
+
+    header .eyebrow {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--indigo);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-size: clamp(1.75rem, 4vw, 2.25rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: var(--muted);
+      max-width: 42rem;
+      font-size: 1.05rem;
+    }
+
+    h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin: 2.25rem 0 1rem;
+    }
+
+    /* ── Flow diagram ── */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .node {
+      width: min(100%, 520px);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 1rem 1.25rem;
+      position: relative;
+    }
+
+    .node.wide {
+      width: min(100%, 720px);
+    }
+
+    .node .label {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+
+    .node .title {
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    .node .desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .node.phone { border-color: rgba(251, 191, 36, 0.35); background: linear-gradient(180deg, var(--amber-dim), var(--panel)); }
+    .node.twilio { border-color: rgba(251, 113, 133, 0.35); background: linear-gradient(180deg, var(--rose-dim), var(--panel)); }
+    .node.dash { border-color: rgba(56, 189, 248, 0.35); background: linear-gradient(180deg, var(--sky-dim), var(--panel)); }
+    .node.backend {
+      border-color: rgba(129, 140, 248, 0.4);
+      background: linear-gradient(180deg, var(--indigo-dim), var(--panel));
+      padding: 1.25rem;
+    }
+
+    .connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.35rem 0;
+      color: var(--dim);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.68rem;
+      gap: 0.15rem;
+    }
+
+    .connector .line {
+      width: 2px;
+      height: 18px;
+      background: linear-gradient(to bottom, transparent, var(--indigo), transparent);
+    }
+
+    .connector .arrow { color: var(--indigo); font-size: 0.75rem; }
+
+    .pipeline {
+      display: grid;
+      gap: 0.65rem;
+      margin-top: 1rem;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.85rem;
+      align-items: start;
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+    }
+
+    .stage .num {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--indigo);
+      background: var(--indigo-dim);
+      border: 1px solid rgba(129, 140, 248, 0.3);
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .stage strong {
+      display: block;
+      font-size: 0.92rem;
+      margin-bottom: 0.15rem;
+    }
+
+    .stage span {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .stage code {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      color: var(--indigo);
+      background: rgba(99, 102, 241, 0.12);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }
+
+    .side-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.65rem;
+      margin-top: 0.65rem;
+    }
+
+    @media (max-width: 640px) {
+      .side-row { grid-template-columns: 1fr; }
+    }
+
+    .chip {
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+
+    .chip strong { display: block; margin-bottom: 0.15rem; }
+    .chip span { color: var(--muted); font-size: 0.78rem; }
+
+    /* ── Stack grid ── */
+    .stack {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.65rem;
+    }
+
+    .stack-item {
+      padding: 0.9rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .stack-item .k {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--dim);
+      font-family: "JetBrains Mono", monospace;
+      margin-bottom: 0.3rem;
+    }
+
+    .stack-item .v {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    /* ── Notes ── */
+    .notes {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .note {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.85rem;
+      padding: 1rem 1.15rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .note .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 0.45rem;
+      background: var(--emerald);
+      box-shadow: 0 0 0 4px var(--emerald-dim);
+    }
+
+    .note p {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .note p strong { color: var(--text); font-weight: 600; }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--dim);
+      font-family: "JetBrains Mono", monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="eyebrow">VoiceFlow · System design</div>
+      <h1>Architecture</h1>
+      <p>
+        Cascaded real-time voice pipeline: Twilio Media Streams bridge PSTN audio
+        into FastAPI, then Deepgram STT → LLM tools → Cartesia/ElevenLabs TTS,
+        with a Next.js dashboard for control and observability.
+      </p>
+    </header>
+
+    <h2>Call path</h2>
+    <div class="flow">
+      <div class="node phone">
+        <div class="label">Edge</div>
+        <div class="title">Caller phone</div>
+        <div class="desc">PSTN audio · barge-in · natural conversation</div>
+      </div>
+
+      <div class="connector">
+        <div class="line"></div>
+        <span>PSTN</span>
+        <span class="arrow">▼</span>
+      </div>
+
+      <div class="node twilio">
+        <div class="label">Telephony</div>
+        <div class="title">Twilio</div>
+        <div class="desc">
+          Places outbound call · answers via TwiML · bridges bidirectional
+          Media Streams (8&nbsp;kHz μ-law, base64 JSON over WSS)
+        </div>
+      </div>
+
+      <div class="connector">
+        <div class="line"></div>
+        <span>WSS /twilio/stream</span>
+        <span class="arrow">▼</span>
+      </div>
+
+      <div class="node backend wide">
+        <div class="label">Backend · FastAPI</div>
+        <div class="title">Per-call pipeline</div>
+        <div class="desc" style="margin-bottom: 0.25rem;">
+          One WebSocket → one <code style="font-family:JetBrains Mono;font-size:0.75rem;color:var(--indigo)">CallSession</code>
+          + <code style="font-family:JetBrains Mono;font-size:0.75rem;color:var(--indigo)">CallPipeline</code>
+          (concurrent calls are isolated async tasks)
+        </div>
+
+        <div class="pipeline">
+          <div class="stage">
+            <div class="num">1</div>
+            <div>
+              <strong>Gateway · <code>media_stream.py</code></strong>
+              <span>Accept Twilio WS · decode media frames · wire send/clear/hangup/transfer</span>
+            </div>
+          </div>
+          <div class="stage">
+            <div class="num">2</div>
+            <div>
+              <strong>STT · Deepgram streaming</strong>
+              <span>
+                <code>nova-2-phonecall</code> (en) · <code>nova-2</code> (hi/hinglish) ·
+                interim results for barge-in · endpointing for turn end
+              </span>
+            </div>
+          </div>
+          <div class="stage">
+            <div class="num">3</div>
+            <div>
+              <strong>LLM · <code>agent.py</code></strong>
+              <span>
+                Grok (default) / Kimi fallback · streaming sentences · tool calls
+                (promise-to-pay, qualify lead, escalate, end_call)
+              </span>
+            </div>
+          </div>
+          <div class="stage">
+            <div class="num">4</div>
+            <div>
+              <strong>TTS · Cartesia / ElevenLabs</strong>
+              <span>
+                Sentence-level stream → μ-law 8&nbsp;kHz → Twilio ·
+                <code>language=en|hi</code> · pluggable providers
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-row">
+          <div class="chip">
+            <strong>metrics.py</strong>
+            <span>Per-turn STT / LLM / TTS / e2e · avg + p95</span>
+          </div>
+          <div class="chip">
+            <strong>storage.py</strong>
+            <span>SQLite · transcripts · captures · call context</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="connector">
+        <div class="line"></div>
+        <span>REST /api/*</span>
+        <span class="arrow">▼</span>
+      </div>
+
+      <div class="node dash">
+        <div class="label">Frontend</div>
+        <div class="title">Next.js dashboard</div>
+        <div class="desc">
+          Start calls · live transcript · captured results · latency observability ·
+          English / Hindi / Hinglish + voice picker
+        </div>
+      </div>
+    </div>
+
+    <h2>Stack</h2>
+    <div class="stack">
+      <div class="stack-item"><div class="k">Telephony</div><div class="v">Twilio Media Streams</div></div>
+      <div class="stack-item"><div class="k">STT</div><div class="v">Deepgram</div></div>
+      <div class="stack-item"><div class="k">LLM</div><div class="v">Grok · Kimi fallback</div></div>
+      <div class="stack-item"><div class="k">TTS</div><div class="v">Cartesia · ElevenLabs</div></div>
+      <div class="stack-item"><div class="k">Backend</div><div class="v">FastAPI · asyncio</div></div>
+      <div class="stack-item"><div class="k">Frontend</div><div class="v">Next.js · TypeScript</div></div>
+      <div class="stack-item"><div class="k">Data</div><div class="v">SQLite</div></div>
+      <div class="stack-item"><div class="k">Deploy</div><div class="v">Render · Vercel</div></div>
+    </div>
+
+    <h2>Design notes</h2>
+    <div class="notes">
+      <div class="note">
+        <div class="dot"></div>
+        <p>
+          <strong>Cascaded, not black-box realtime.</strong>
+          Each stage is a swappable adapter so latency and failures stay visible
+          (STT ms · LLM first sentence · TTS first byte · e2e).
+        </p>
+      </div>
+      <div class="note">
+        <div class="dot"></div>
+        <p>
+          <strong>Barge-in.</strong>
+          Deepgram interim transcripts cancel the in-flight speak task and send
+          Twilio <code style="font-family:JetBrains Mono;font-size:0.75rem;color:var(--indigo)">clear</code>
+          so the agent stops mid-sentence when the caller talks.
+        </p>
+      </div>
+      <div class="note">
+        <div class="dot"></div>
+        <p>
+          <strong>Tools → dashboard.</strong>
+          Promise-to-pay, lead qualify, and escalate write structured
+          <code style="font-family:JetBrains Mono;font-size:0.75rem;color:var(--indigo)">capture_json</code>
+          shown on the call detail page.
+        </p>
+      </div>
+      <div class="note">
+        <div class="dot"></div>
+        <p>
+          <strong>Demo-scale concurrency.</strong>
+          Multiple calls can run as isolated async pipelines on one process.
+          Production scale would add Postgres, dial queues, and horizontal media workers.
+        </p>
+      </div>
+    </div>
+
+    <footer>
+      VoiceFlow · open this file in a browser · architecture.html
+    </footer>
+  </div>
+</body>
+</html>
