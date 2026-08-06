@@ -11,7 +11,7 @@ framework — so every stage stays observable and swappable.
 
 ## Demo
 
-<!-- Add a link to your demo video or live deployment here -->
+[Watch the demo video](https://youtu.be/WMqto41-tRw)
 
 ## Architecture
 
