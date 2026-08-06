@@ -220,14 +220,29 @@ export function NewCallForm() {
                 </label>
                 <input
                   id={`field-${f.key}`}
-                  type={f.type}
+                  type={f.type === "tel" ? "password" : f.type}
+                  inputMode={f.type === "tel" ? "tel" : undefined}
                   required={f.required}
                   placeholder={f.placeholder}
                   value={fieldValues[f.key] ?? ""}
                   onChange={(e) =>
                     setFieldValues((prev) => ({ ...prev, [f.key]: e.target.value }))
                   }
-                  className={inputClass}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  {...(f.type === "tel"
+                    ? {
+                        name: `vf-${f.key}`,
+                        "data-1p-ignore": true,
+                        "data-lpignore": "true",
+                        "data-form-type": "other",
+                      }
+                    : {})}
+                  className={
+                    f.type === "tel" ? `${inputClass} font-mono tracking-widest` : inputClass
+                  }
                 />
               </div>
             ))}

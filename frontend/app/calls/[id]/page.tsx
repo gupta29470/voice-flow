@@ -11,7 +11,15 @@ import {
   type CallDetail,
   type CallMetrics,
 } from "@/lib/api";
-import { formatDateTime, formatDuration, formatMs, formatTimestamp } from "@/lib/format";
+import {
+  formatDateTime,
+  formatDuration,
+  formatMs,
+  formatTimestamp,
+  isPhoneFieldKey,
+  looksLikePhone,
+  maskPhone,
+} from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { BackendNote } from "@/components/BackendNote";
 import { Skeleton } from "@/components/Skeleton";
@@ -173,7 +181,15 @@ function CapturePanel({
                 <dt className="text-[11px] uppercase tracking-wider text-zinc-600">
                   {key.replace(/_/g, " ")}
                 </dt>
-                <dd className="mt-0.5 text-zinc-200">{value}</dd>
+                <dd
+                  className={`mt-0.5 text-zinc-200 ${
+                    isPhoneFieldKey(key) || looksLikePhone(value) ? "font-mono" : ""
+                  }`}
+                >
+                  {isPhoneFieldKey(key) || looksLikePhone(value)
+                    ? maskPhone(value)
+                    : value}
+                </dd>
               </div>
             ))}
           </dl>
@@ -314,7 +330,9 @@ export default function CallDetailPage() {
             <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3 lg:grid-cols-7">
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-zinc-600">Phone</dt>
-                <dd className="mt-0.5 font-mono text-zinc-200">{call.phone_number}</dd>
+                <dd className="mt-0.5 font-mono text-zinc-200">
+                  {maskPhone(call.phone_number)}
+                </dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-zinc-600">TTS</dt>

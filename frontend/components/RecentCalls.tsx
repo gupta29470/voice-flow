@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError, workflowName, type CallSummary, type Workflow } from "@/lib/api";
-import { formatDateTime, formatDuration } from "@/lib/format";
+import { formatDateTime, formatDuration, maskPhone } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { BackendNote } from "@/components/BackendNote";
 import { Skeleton } from "@/components/Skeleton";
@@ -104,7 +104,7 @@ export function RecentCalls() {
                   </span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
-                  <span className="font-mono text-zinc-400">{c.phone_number}</span>
+                  <span className="font-mono text-zinc-400">{maskPhone(c.phone_number)}</span>
                   <span className="capitalize">{c.tts_provider}</span>
                   <span>{c.voice_name}</span>
                   <span>{formatDuration(c.duration_sec)}</span>
