@@ -55,6 +55,27 @@ export function looksLikePhone(value: string): boolean {
   return digits.length >= 8 && /^\+?[\d\s().-]+$/.test(t);
 }
 
+/**
+ * Field keys that carry a phone number: `phone`, `PHONE_NUMBER`, `tel_no`, `callerPhone`,
+ * `phoneNumber`, `homeTel`.
+ *
+ * A phone token has to be a WHOLE SEGMENT — the key, or a piece of it between separators or
+ * camelCase humps. The loose substring match this replaces tested `phone|mobile|tel|msisdn`
+ * anywhere in the key, so `hotel` and `telemetry` were phone fields and their values got masked:
+ * a reader cannot tell which field was mangled or why, and a half-masked hotel name is worse than
+ * an unmasked one.
+ *
+ * Three patterns, because the boundaries are not one thing and `i` cannot be added to all of them:
+ * under `i` a `[A-Z]` is no longer "a capital letter", which is exactly the distinction separating
+ * `phoneNumber` from `telemetry`. `telephone` is its own token for the same reason — it IS a phone
+ * field, and `tel` + `e` is where it and `telemetry` part company.
+ */
+const PHONE_KEY_SEPARATED = /(?:^|[_.\s-])(?:phone|telephone|mobile|msisdn|tel)(?=[_.\s-]|$)/i;
+const PHONE_KEY_CAMEL = /(?:[a-z0-9])(?:Phone|Telephone|Mobile|Msisdn|Tel)(?=[A-Z]|$)/;
+const PHONE_KEY_LEADING = /^(?:phone|telephone|mobile|msisdn|tel)(?=[A-Z])/;
+
 export function isPhoneFieldKey(key: string): boolean {
-  return /phone|mobile|tel|msisdn/i.test(key);
+  return (
+    PHONE_KEY_SEPARATED.test(key) || PHONE_KEY_CAMEL.test(key) || PHONE_KEY_LEADING.test(key)
+  );
 }

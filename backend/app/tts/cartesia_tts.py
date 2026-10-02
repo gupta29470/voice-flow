@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import uuid
 
 import httpx
@@ -7,6 +8,8 @@ import websockets
 
 from app.config import settings
 from app.tts.base import TTSProvider, Voice
+
+log = logging.getLogger("tts")
 
 WS_URL = ("wss://api.cartesia.ai/tts/websocket"
           "?api_key={key}&cartesia_version=2025-04-16")
@@ -45,27 +48,47 @@ class CartesiaTTS(TTSProvider):
                     raise RuntimeError(f"Cartesia error: {msg}")
 
     async def list_voices(self) -> list[Voice]:
-        voices: list[Voice] = []
+        """Every voice this account offers, once per voice.
+
+        Two things the first version got wrong, both found by a review pass:
+
+        * ONE language's request failing aborted the whole list. A 4xx/5xx or a timeout on the
+          Hindi call lost the English voices too, so the picker claimed the account had none.
+          Each language is fetched independently now, and a failure is logged and skipped.
+        * The same voice comes back for both `en` and `hi`, and appending per language listed it
+          twice. Deduplicated by id, first language wins, so the picker cannot offer one voice
+          twice under two different languages.
+        """
+        # Keyed by voice id: insertion order is preserved, and the first language that returns a
+        # voice wins. A dict rather than "list + a seen set" because that is exactly the shape of
+        # the thing being collected.
+        found: dict[str, Voice] = {}
         async with httpx.AsyncClient(timeout=15) as client:
             for lang in _VOICE_LANGS:
-                resp = await client.get(
-                    VOICES_URL,
-                    params={"language": lang, "limit": _VOICES_PER_LANG},
-                    headers={
-                        "X-API-Key": settings.cartesia_api_key,
-                        "Cartesia-Version": "2025-04-16",
-                    },
-                )
-                resp.raise_for_status()
-                data = resp.json()
+                try:
+                    resp = await client.get(
+                        VOICES_URL,
+                        params={"language": lang, "limit": _VOICES_PER_LANG},
+                        headers={
+                            "X-API-Key": settings.cartesia_api_key,
+                            "Cartesia-Version": "2025-04-16",
+                        },
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                except (httpx.HTTPError, ValueError) as exc:
+                    # `ValueError` covers a 200 whose body is not JSON: that is this language
+                    # failing, not the account having no voices.
+                    log.warning("cartesia_voice_list_failed lang=%s error=%s", lang, exc)
+                    continue
                 # Bare list or {"data": [...]} — accept either.
                 items = data.get("data", []) if isinstance(data, dict) else data
                 for v in items:
-                    voices.append(Voice(
+                    found.setdefault(v["id"], Voice(
                         provider=self.name,
                         id=v["id"],
                         name=v.get("name", v["id"]),
                         description=v.get("description") or v.get("tagline") or "",
                         language=v.get("language") or lang,
                     ))
-        return voices
+        return list(found.values())

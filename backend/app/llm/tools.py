@@ -205,6 +205,13 @@ def _lookup_branch(session, area="") -> str:
             "open Monday to Saturday, 10 AM to 4 PM.")
 
 def _qualify_lead(session, interest_level, notes="") -> str:
+    # `execute_tool` passes the model's arguments straight through, and the schema that declares
+    # `interest_level` as a string is a hint to the model, not a check on it. A number or a list
+    # here used to reach `.replace` and raise AttributeError, which the caller turns into a generic
+    # failure the model cannot act on; this says what to do instead.
+    if not isinstance(interest_level, str):
+        return ("I could not record the interest level, because it did not arrive as text. "
+                "Please call qualify_lead again with a word such as \"hot\", \"warm\" or \"cold\".")
     label = interest_level.replace("_", " ").title()
     session.set_capture(
         "lead_qualified",

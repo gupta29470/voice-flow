@@ -79,6 +79,18 @@ export function NewCallForm() {
     return matched;
   }, [voices, provider, ttsLang]);
 
+  /**
+   * Whether the list below is actually IN the call's language.
+   *
+   * The ElevenLabs fallback above deliberately offers its voices when it has none tagged for the
+   * language, so the list can be showing English voices while the call is Hindi. Labelling that
+   * list "Hindi" is a claim the list does not support — the label says so only when every voice in
+   * it matches.
+   */
+  const voicesMatchLanguage =
+    providerVoices.length > 0 &&
+    providerVoices.every((v) => (v.language || "en") === ttsLang);
+
   const selectedVoice = useMemo(
     () => providerVoices.find((v) => v.id === voiceId) ?? null,
     [providerVoices, voiceId]
@@ -338,7 +350,9 @@ export function NewCallForm() {
           ) : providerVoices.length > 0 ? (
             <div>
               <label htmlFor="voice" className={labelClass}>
-                Voice ({ttsLang === "hi" ? "Hindi" : "English"})
+                {voicesMatchLanguage
+                  ? `Voice (${ttsLang === "hi" ? "Hindi" : "English"})`
+                  : "Voice (no match for this language)"}
               </label>
               <select
                 id="voice"
@@ -359,7 +373,7 @@ export function NewCallForm() {
           ) : (
             <p className="text-sm text-zinc-500">
               No {ttsLang === "hi" ? "Hindi" : "English"} voices for this
-              provider — try Cartesia.
+              provider{provider === "cartesia" ? "." : " — try Cartesia."}
             </p>
           )}
         </div>
