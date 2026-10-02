@@ -63,6 +63,7 @@ class CartesiaTTS(TTSProvider):
         # voice wins. A dict rather than "list + a seen set" because that is exactly the shape of
         # the thing being collected.
         found: dict[str, Voice] = {}
+        last_error: Exception | None = None
         async with httpx.AsyncClient(timeout=15) as client:
             for lang in _VOICE_LANGS:
                 try:
@@ -80,6 +81,7 @@ class CartesiaTTS(TTSProvider):
                     # `ValueError` covers a 200 whose body is not JSON: that is this language
                     # failing, not the account having no voices.
                     log.warning("cartesia_voice_list_failed lang=%s error=%s", lang, exc)
+                    last_error = exc
                     continue
                 # Bare list or {"data": [...]} — accept either.
                 items = data.get("data", []) if isinstance(data, dict) else data
@@ -91,4 +93,10 @@ class CartesiaTTS(TTSProvider):
                         description=v.get("description") or v.get("tagline") or "",
                         language=v.get("language") or lang,
                     ))
+        if not found and last_error is not None:
+            # EVERY language failed, and that is not the same fact as "this account has no voices".
+            # Reporting it as an empty list is what turned an invalid key or an outage into a
+            # cheerful "no voices for this provider" — a review flagged it, and the caller loses the
+            # distinction it needs to tell the user what to fix.
+            raise last_error
         return list(found.values())

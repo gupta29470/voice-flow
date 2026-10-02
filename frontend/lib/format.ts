@@ -56,26 +56,28 @@ export function looksLikePhone(value: string): boolean {
 }
 
 /**
- * Field keys that carry a phone number: `phone`, `PHONE_NUMBER`, `tel_no`, `callerPhone`,
- * `phoneNumber`, `homeTel`.
+ * Field keys that carry a phone number: `phone`, `phone_number`, `PHONE_NUMBER`, `tel_no`,
+ * `callerPhone`, `phoneNumber`, `PhoneNumber`, `homeTel`, `MSISDNNumber`.
  *
  * A phone token has to be a WHOLE SEGMENT — the key, or a piece of it between separators or
- * camelCase humps. The loose substring match this replaces tested `phone|mobile|tel|msisdn`
+ * camelCase humps. The loose substring match this replaced tested `phone|mobile|tel|msisdn`
  * anywhere in the key, so `hotel` and `telemetry` were phone fields and their values got masked:
  * a reader cannot tell which field was mangled or why, and a half-masked hotel name is worse than
  * an unmasked one.
  *
- * Three patterns, because the boundaries are not one thing and `i` cannot be added to all of them:
- * under `i` a `[A-Z]` is no longer "a capital letter", which is exactly the distinction separating
- * `phoneNumber` from `telemetry`. `telephone` is its own token for the same reason — it IS a phone
- * field, and `tel` + `e` is where it and `telemetry` part company.
+ * A camel hump is treated as a separator — `callerPhone` becomes `caller_Phone` — which is what
+ * lets ONE case-insensitive pattern handle every convention. The first version of this fix had
+ * three hand-written patterns instead and missed `PhoneNumber` and `MobileNumber`, because a
+ * leading capital matched none of them: a review caught it, which is the regression this shape
+ * exists to prevent.
  */
-const PHONE_KEY_SEPARATED = /(?:^|[_.\s-])(?:phone|telephone|mobile|msisdn|tel)(?=[_.\s-]|$)/i;
-const PHONE_KEY_CAMEL = /(?:[a-z0-9])(?:Phone|Telephone|Mobile|Msisdn|Tel)(?=[A-Z]|$)/;
-const PHONE_KEY_LEADING = /^(?:phone|telephone|mobile|msisdn|tel)(?=[A-Z])/;
-
 export function isPhoneFieldKey(key: string): boolean {
-  return (
-    PHONE_KEY_SEPARATED.test(key) || PHONE_KEY_CAMEL.test(key) || PHONE_KEY_LEADING.test(key)
-  );
+  // TWO passes, because `phoneNumber` and `MSISDNNumber` break in different places: the first
+  // splits a lowercase run from a following capital, the second splits the LAST capital of an
+  // acronym from a Capitalised word (`MSISDN` + `Number`). Without the second, an all-caps prefix
+  // followed by a word is one unsegmentable blob and `MSISDNNumber` goes unmasked.
+  const segmented = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2");
+  return /(?:^|[_.\s-])(?:phone|telephone|mobile|msisdn|tel)(?=[_.\s-]|$)/i.test(segmented);
 }
